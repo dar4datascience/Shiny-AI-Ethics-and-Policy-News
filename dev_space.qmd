@@ -1,0 +1,340 @@
+---
+title: "Rethinking AI Ethics & Policy News"
+author: "Daniel Amieva"
+format: 
+  html:
+    theme: superhero
+    code-fold: true
+    toc: true
+execution:
+  messages: false
+  errors: true
+  warnings: false
+---
+
+```{r setup}
+pacman::p_load(dplyr, 
+               googlesheets4,
+               janitor,
+               knitr,
+               reactablefmtr)
+
+gs4_auth(email='danielamieva@dar4datascience.com')
+```
+
+
+## Objective
+
+Replicate table of google sheets into R
+
+## Dashboard ideation
+
+how to visualize best information gathered?
+
+- count of categories
+- further category generation from topic modelling
+- visualize news iframe if possible with carrusel view shiny: https://yonicd.github.io/slickR/ https://cran.r-project.org/web/packages/slickR/vignettes/basics.html
+- date slicer to view changing attitude around sentiment categories
+- infinite scroll for gathering news of a particular topic: https://appsilon.com/infinite-scrolling-in-r-shiny/
+
+## The Data
+
+```{r getdrfdata}
+ai_ethics_news_df <- read_sheet('https://docs.google.com/spreadsheets/d/11Ps8ILDHH-vojJGyIx7CcaoB5l1mBRHy3OQAgWkm0W4/htmlview#',
+                                skip = 1) |> 
+  clean_names() |> 
+    mutate(
+    #assign a color for each unique primary categorization using case when
+# 1 Privacy               
+#  2 Miscellaneous         
+#  3 Risk                  
+#  4 IP                    
+#  5 Regulation            
+#  6 Misinformation        
+#  7 Work                  
+#  8 Education             
+#  9 Bias                  
+# 10 Business              
+# 11 Security 
+    colours = case_when(
+      primary_categorization == "Privacy" ~ "#1f77b4",
+      primary_categorization == "Miscellaneous" ~ "#ff7f0e",
+      primary_categorization == "Risk" ~ "#d62728",
+      primary_categorization == "IP" ~ "#2ca02c",
+      primary_categorization == "Regulation" ~ "#9467bd",
+      primary_categorization == "Misinformation" ~ "#8c564b",
+      primary_categorization == "Work" ~ "#e377c2",
+      primary_categorization == "Education" ~ "#7f7f7f",
+      primary_categorization == "Bias" ~ "#bcbd22",
+      primary_categorization == "Business" ~ "#17becf",
+      primary_categorization == "Security" ~ "#aec7e8",
+      TRUE ~ "#ff0000"
+    ),
+    date = lubridate::ymd(date)
+  ) 
+
+tbl_primary_categorization <- ai_ethics_news_df |> 
+  tabyl(primary_categorization) 
+
+tbl_publications <- ai_ethics_news_df |> 
+  tabyl(publication)
+```
+
+## Visualizations
+
+### Primary Categorization
+
+```{r primary_categorization}
+tbl_primary_categorization |>
+  reactable(
+    theme = superhero(centered = TRUE),
+    defaultSorted = "n",
+  defaultSortOrder = "desc",
+  searchable = TRUE,
+  columns = list(
+    primary_categorization = colDef(
+      footer = "Total",
+      name = "Primary Categorization",
+      cell = data_bars(tbl_primary_categorization,
+                       fill_by = "n",
+                       text_position = "above",
+                       text_color = "white",
+                       fill_color = viridis::viridis(3,
+                                                   direction = -1))
+    ),
+    n = colDef(
+      name = "# Articles",
+      footer = function(values) sprintf("$%.2f", sum(values)),
+      format = colFormat(
+        digits = 0,
+        separators = TRUE
+      )
+    ),
+    percent = colDef(
+      name = "% of Total Articles",
+      format = colFormat(
+        digits = 2,
+        percent = TRUE
+      )
+    )
+  ),
+  defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
+) |> 
+add_legend(data = tbl_primary_categorization,
+           col_name = "n",
+           title = "Volume of Articles",
+           align = 'left',
+           colors = viridis::viridis(3, direction = -1)) |>
+  add_source(
+    source = html("The articles are sourced by <i class='fa-solid fa-person-chalkboard'>Phd. Casey Fiesler</i>; she posts occasional news roundups on TikTok and Instagram <a href='https://www.instagram.com/professorcasey/'>@professorcasey.</a>"),
+    font_style = 'italic',
+    font_weight = 'bold'
+  ) |> 
+  add_source(
+    source = reactablefmtr::html("<i class='fas fa-palette'></i> Table design by Daniel Amieva"),
+    font_style = 'italic',
+    font_weight = 'bold'
+  ) |>  
+  add_source(
+    source = html("<i class='fas fa-link'></i> Link to source data: <a href='https://docs.google.com/spreadsheets/d/11Ps8ILDHH-vojJGyIx7CcaoB5l1mBRHy3OQAgWkm0W4/htmlview#'>AI Ethics & Policy News</a>"),
+    font_style = 'italic',
+    font_weight = 'bold'
+  )
+```
+
+### Publications
+
+```{r publications}
+tbl_publications |> 
+  reactable(
+    theme = superhero(centered = TRUE),
+    defaultSorted = "n",
+  defaultSortOrder = "desc",
+  searchable = TRUE,
+  columns = list(
+    publication = colDef(
+      name = "Primary Categorization",
+      cell = data_bars(tbl_publications,
+                       fill_by = "n",
+                       text_position = "above",
+                       text_color = "white",
+                       fill_color = viridis::viridis(3,
+                                                   direction = -1))
+    ),
+    n = colDef(
+      name = "# Articles",
+      format = colFormat(
+        digits = 0,
+        separators = TRUE
+      )
+    ),
+    percent = colDef(
+      name = "% of Total Articles",
+      format = colFormat(
+        digits = 2,
+        percent = TRUE
+      )
+    )
+  )
+) |> 
+add_legend(data = tbl_publications,
+           col_name = "n",
+           title = "Volume of Articles",
+           align = 'left',
+           colors = viridis::viridis(3, direction = -1)) |>
+  add_source(
+    source = html("The articles are sourced by <i class='fa-solid fa-person-chalkboard'>Phd. Casey Fiesler</i>; she posts occasional news roundups on TikTok and Instagram <a href='https://www.instagram.com/professorcasey/'>@professorcasey.</a>"),
+    font_style = 'italic',
+    font_weight = 'bold'
+  ) |> 
+  add_source(
+    source = reactablefmtr::html("<i class='fas fa-palette'></i> Table design by Daniel Amieva"),
+    font_style = 'italic',
+    font_weight = 'bold'
+  ) |>  
+  add_source(
+    source = html("<i class='fas fa-link'></i> Link to source data: <a href='https://docs.google.com/spreadsheets/d/11Ps8ILDHH-vojJGyIx7CcaoB5l1mBRHy3OQAgWkm0W4/htmlview#'>AI Ethics & Policy News</a>"),
+    font_style = 'italic',
+    font_weight = 'bold'
+  )
+```
+
+## Iframe Test 
+```{=html}
+<iframe width="780" height="500" src="https://docs.google.com/spreadsheets/d/11Ps8ILDHH-vojJGyIx7CcaoB5l1mBRHy3OQAgWkm0W4/htmlview#" title="AI Ethics & Policy News"></iframe>
+```
+
+
+
+## Scrape the urls from the google sheets
+
+cause googlesheets4 doesnt read in hyperlinks, we need to scrape them from the google sheet
+
+```{r scrape_urls}
+library(rvest)
+
+# Specify the URL
+url <- "https://docs.google.com/spreadsheets/d/11Ps8ILDHH-vojJGyIx7CcaoB5l1mBRHy3OQAgWkm0W4/htmlview#"
+
+# Read the HTML content
+web_content <- read_html(url)
+
+# Extract <a> nodes
+a_nodes <- web_content %>% html_nodes("a")
+
+# Extract href hyperlinks and associated text
+links <- a_nodes %>% html_attr("href")
+text <- a_nodes %>% html_text()
+
+# Filter links that start with "https://www.google.com/url?q="
+filtered_indices <- grep("^https://www.google.com/url\\?q=", links)
+
+filtered_links <- links[filtered_indices]
+filtered_text <- text[filtered_indices]
+
+# links to the same website are not the same
+# Create a dataframe
+df <- data.frame(
+  Text = filtered_text,
+  URL = filtered_links
+) |> 
+  mutate(
+    URL = stringr::str_remove(URL, "^https://www.google.com/url\\?q="),
+    # remove tracking parameters
+    clean_url = sub("&sa=D&source.*", "", URL)
+  ) |> 
+  select(
+    -URL
+  ) |> 
+  distinct()
+
+# Print the dataframe
+print(df)
+
+```
+
+## Join tables
+
+```{r join_tables}
+full_ai_ethics_news_df <- ai_ethics_news_df |> 
+  rename(
+    "article_title" = article_title_link
+  ) |> 
+  left_join(df, by = c("article_title" = "Text")) |> 
+  mutate(
+    artitle_title_link = glue::glue("<a href='{clean_url}' style='color: white;'>{article_title}</a>") ,
+    artitle_title_link = artitle_title_link |> 
+      purrr::map_chr(reactablefmtr::html)
+  )
+  
+```
+
+
+
+## Main Table
+
+```{r}
+full_ai_ethics_news_df |>
+  select(
+    primary_categorization,
+    artitle_title_link,
+    publication,
+    date,
+    colours,
+    article_title,
+    clean_url
+  ) |>
+  reactable(
+    theme = superhero(centered = TRUE),
+    searchable = TRUE,
+    columns = list(
+      primary_categorization = colDef(
+        name = "Primary Categorization",
+cell = pill_buttons(
+          data = ai_ethics_news_df,
+          color_ref = "colours",
+          box_shadow = TRUE
+        )
+    ),
+  artitle_title_link = colDef(
+    name = "Article Title",
+    html = TRUE
+  ),
+  publication = colDef(
+    name = "Publication"
+  ),
+  date = colDef(
+    name = "Date",
+    format = colFormat(
+      date = TRUE
+    )
+  ),
+      colours = colDef(
+        show = FALSE
+      ),
+    article_title = colDef(
+      show = FALSE
+    ),
+    clean_url = colDef(
+      show = FALSE
+    )
+)
+  ) |> 
+  add_source(
+    source = html("The articles are sourced by <i class='fa-solid fa-person-chalkboard'>Phd. Casey Fiesler</i>; she posts occasional news roundups on TikTok and Instagram <a href='https://www.instagram.com/professorcasey/'>@professorcasey.</a>"),
+    
+    font_style = 'italic',
+    font_weight = 'bold'
+  ) |> 
+  add_source(
+    source = reactablefmtr::html("<i class='fas fa-palette'></i> Table design by Daniel Amieva"),
+    
+    font_style = 'italic',
+    font_weight = 'bold'
+  ) |> 
+  add_source(
+    source = html("<i class='fas fa-link'></i> Link to source data: <a href='https://docs.google.com/spreadsheets/d/11Ps8ILDHH-vojJGyIx7CcaoB5l1mBRHy3OQAgWkm0W4/htmlview#'>AI Ethics & Policy News</a>"),
+    font_style = 'italic',
+    font_weight = 'bold'
+  )
+```
