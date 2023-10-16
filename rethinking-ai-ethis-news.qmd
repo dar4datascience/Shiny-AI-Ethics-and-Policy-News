@@ -3,7 +3,9 @@ title: "Rethinking AI Ethics & Policy News"
 author: "Daniel Amieva"
 format: 
   html:
-    theme: superhero
+    theme: 
+      light: superhero
+      dark: cyborg
     code-fold: true
     toc: true
 execution:
@@ -248,8 +250,7 @@ df <- data.frame(
   ) |> 
   distinct()
 
-# Print the dataframe
-print(df)
+
 
 ```
 
@@ -338,3 +339,53 @@ cell = pill_buttons(
     font_weight = 'bold'
   )
 ```
+
+## Build Iframes
+
+For each publication do a heading and then all the news into an iframe
+
+```{r build_iframes, results = 'asis', eval=FALSE}
+# for each publication, build an iframe
+template_iframe_chunk <- '#### News from {{article_title}} \n\n 
+```{=html}
+<iframe width="780" height="500" src="{{clean_url}}" title="{{article_title}}"></iframe>
+'
+
+# get unique publications top 5
+unique_publications <- full_ai_ethics_news_df |> 
+  count(publication, sort = TRUE) |> 
+  slice_max(n = 5, n)
+
+unique_publications |> 
+  distinct() |> 
+  pull(publication) |> 
+  purrr::walk(
+    \(publi){
+
+      selected_df <- full_ai_ethics_news_df |> 
+        filter(publication == publi) |> 
+        select(
+          article_title,
+          clean_url,
+          publication
+        ) |> 
+        slice_sample(n = 5)
+      
+      iframe <- glue::glue_data(selected_df,
+                                template_iframe_chunk,
+                                .open = "{{",
+                                .close = "}}"
+                                )
+      
+      heading <- glue::glue("### {publi} \n\n")
+      
+      cat(heading)
+      cat(iframe)
+      cat("\n\n")
+      
+    }
+    
+  ) 
+
+```
+'
